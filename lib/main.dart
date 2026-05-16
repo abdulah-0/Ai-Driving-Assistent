@@ -6,6 +6,7 @@ import 'package:camera/camera.dart';
 import 'package:provider/provider.dart';
 import 'location_service.dart';
 import 'core/rule_engine.dart';
+import 'core/ml_service.dart';
 import 'ui/face_camera.dart';
 import 'ui/alarm_overlay.dart';
 import 'providers/drowsiness_provider.dart';
@@ -55,6 +56,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final MapController _mapController = MapController();
   final LocationService _locationService = LocationService();
   final RuleEngine _ruleEngine = RuleEngine();
+  late final MLService _mlService;
 
   LatLng _currentPosition = const LatLng(33.5651, 73.0169);
   int _currentSpeed = 0;
@@ -66,6 +68,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
+    _mlService = MLService();
+    _mlService.initialize();
+    _mlService.eyeDataStream.listen((eyeData) {
+      if (eyeData.hasValidData) {
+        context.read<DrowsinessProvider>().updateEyeOpenness(
+          eyeData.leftEyeOpenProbability!,
+          eyeData.rightEyeOpenProbability!,
+        );
+      }
+    });
     _initializeTracking();
   }
 
@@ -94,8 +106,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  void _onEyeOpennessDetected(double leftEye, double rightEye) {
-    context.read<DrowsinessProvider>().updateEyeOpenness(leftEye, rightEye);
+  @override
+  void dispose() {
+    _mlService.dispose();
+    super.dispose();
   }
 
   @override
@@ -165,7 +179,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 width: 100,
                 height: 130,
                 child: FaceCamera(
-                  onEyeOpennessDetected: _onEyeOpennessDetected,
+                  mlService: _mlService,
                 ),
               ),
 
