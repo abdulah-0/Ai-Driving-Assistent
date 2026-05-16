@@ -44,5 +44,6 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-# Exclude documentation from git as requested
+# Exclude documentation and planning files from git
 docs/
+.planning/
