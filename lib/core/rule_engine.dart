@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class RuleEngine {
-  final int speedLimit = 60;
+  int speedLimit = 60; // Default limit
 
   bool _isSpeedWarningActive = false;
 
@@ -14,17 +14,31 @@ class RuleEngine {
 
   bool get isDrowsy => _isDrowsy;
 
-  void analyzeSpeed(int currentSpeed, Function(Color, String) updateUI) {
+  // Returns true if a NEW warning should be played
+  bool analyzeSpeed(int currentSpeed, Function(Color, String) updateUI) {
     if (currentSpeed > speedLimit) {
       if (!_isSpeedWarningActive) {
         _isSpeedWarningActive = true;
         updateUI(Colors.redAccent, "WARNING: SPEED LIMIT EXCEEDED");
+        return true; // Trigger sound
       }
     } else {
       if (_isSpeedWarningActive) {
         _isSpeedWarningActive = false;
         updateUI(Colors.greenAccent, "SYSTEM ACTIVE: SAFE");
       }
+    }
+    return false;
+  }
+
+  // Simulate dynamic speed limits based on coordinate "areas"
+  void updateAreaSpeedLimit(double lat, double lng) {
+    // This is a simple simulation. In a real app, use an Overpass API or a Road Speed API.
+    // For now: Areas near Islamabad center (approx 33.7) have lower limits.
+    if (lat > 33.6 && lat < 33.8) {
+      speedLimit = 50; // City area
+    } else {
+      speedLimit = 100; // Highway area
     }
   }
 

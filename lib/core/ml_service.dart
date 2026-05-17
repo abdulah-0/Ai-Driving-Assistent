@@ -1,17 +1,24 @@
+import 'dart:ui';
 import 'dart:async';
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import '../models/eye_data.dart';
+import '../models/face_tracking_data.dart';
 
 class MLService {
   FaceDetector? _faceDetector;
   bool _isProcessingFrame = false;
   DateTime? _lastFrameProcessedTime;
-  final Duration _frameThrottleDuration = const Duration(milliseconds: 80); // ~12.5 FPS
+  final Duration _frameThrottleDuration = const Duration(milliseconds: 80);
   final StreamController<EyeData> _eyeDataController = StreamController<EyeData>.broadcast();
+  final StreamController<FaceTrackingData> _faceTrackingController = StreamController<FaceTrackingData>.broadcast();
+  
+  final List<DateTime> _frameTimestamps = [];
+  double _currentFPS = 0.0;
 
   Stream<EyeData> get eyeDataStream => _eyeDataController.stream;
+  Stream<FaceTrackingData> get faceTrackingStream => _faceTrackingController.stream;
 
   void initialize() {
     final options = FaceDetectorOptions(
@@ -34,6 +41,17 @@ class MLService {
     _isProcessingFrame = true;
 
     try {
+      _frameTimestamps.add(now);
+      if (_frameTimestamps.length > 30) {
+        _frameTimestamps.removeAt(0);
+      }
+      if (_frameTimestamps.length >= 2) {
+        final timeSpan = _frameTimestamps.last.difference(_frameTimestamps.first).inMilliseconds;
+        if (timeSpan > 0) {
+          _currentFPS = ((_frameTimestamps.length - 1) / timeSpan * 1000);
+        }
+      }
+
       final inputImage = _convertCameraImageToInputImage(image, camera);
       if (inputImage == null) {
         _isProcessingFrame = false;
@@ -55,6 +73,30 @@ class MLService {
         if (eyeData.hasValidData) {
           _eyeDataController.add(eyeData);
         }
+
+        final boundingBox = face.boundingBox;
+        final leftEyeLandmark = face.landmarks[FaceLandmarkType.leftEye];
+        final rightEyeLandmark = face.landmarks[FaceLandmarkType.rightEye];
+        final leftEye = leftEyeLandmark?.position;
+        final rightEye = rightEyeLandmark?.position;
+
+        final faceTracking = FaceTrackingData(
+          boundingBox: boundingBox,
+          isFaceDetected: true,
+          leftEyePosition: leftEye != null ? Offset(leftEye.x.toDouble(), leftEye.y.toDouble()) : null,
+          rightEyePosition: rightEye != null ? Offset(rightEye.x.toDouble(), rightEye.y.toDouble()) : null,
+          fps: _currentFPS,
+          isFaceLocked: true,
+        );
+
+        _faceTrackingController.add(faceTracking);
+      } else {
+        final faceTracking = FaceTrackingData(
+          isFaceDetected: false,
+          fps: _currentFPS,
+          isFaceLocked: false,
+        );
+        _faceTrackingController.add(faceTracking);
       }
     } catch (e) {
       debugPrint('MLService processFrame error: $e');
@@ -69,7 +111,7 @@ class MLService {
       final rotation = InputImageRotationValue.fromRawValue(sensorOrientation) ?? InputImageRotation.rotation0deg;
       final format = InputImageFormatValue.fromRawValue(image.format.raw) ?? InputImageFormat.nv21;
 
-      if (image.planes.isEmpty || image.planes.first.bytes == null) {
+      if (image.planes.isEmpty) {
         return null;
       }
 
@@ -96,12 +138,10 @@ class MLService {
 
     for (final face in faces) {
       final boundingBox = face.boundingBox;
-      if (boundingBox != null) {
-        final area = boundingBox.width * boundingBox.height;
-        if (area > largestArea) {
-          largestArea = area;
-          largestFace = face;
-        }
+      final area = boundingBox.width * boundingBox.height;
+      if (area > largestArea) {
+        largestArea = area;
+        largestFace = face;
       }
     }
 
@@ -111,5 +151,6 @@ class MLService {
   void dispose() {
     _faceDetector?.close();
     _eyeDataController.close();
+    _faceTrackingController.close();
   }
 }

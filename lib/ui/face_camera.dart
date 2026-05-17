@@ -1,7 +1,11 @@
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../core/ml_service.dart';
 import '../main.dart';
+import '../models/face_tracking_data.dart';
+import '../providers/drowsiness_provider.dart';
+import 'widgets/face_camera_hud_painter.dart';
 
 class FaceCamera extends StatefulWidget {
   final MLService mlService;
@@ -20,6 +24,12 @@ class _FaceCameraState extends State<FaceCamera> {
   void initState() {
     super.initState();
     _initializeCamera();
+    
+    widget.mlService.faceTrackingStream.listen((faceTracking) {
+      if (mounted) {
+        context.read<DrowsinessProvider>().updateFaceTracking(faceTracking);
+      }
+    });
   }
 
   Future<void> _initializeCamera() async {
@@ -74,12 +84,24 @@ class _FaceCameraState extends State<FaceCamera> {
       );
     }
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: AspectRatio(
-        aspectRatio: 1 / _controller!.value.aspectRatio,
-        child: CameraPreview(_controller!),
-      ),
+    return Consumer<DrowsinessProvider>(
+      builder: (context, provider, child) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Stack(
+            children: [
+              AspectRatio(
+                aspectRatio: 1 / _controller!.value.aspectRatio,
+                child: CameraPreview(_controller!),
+              ),
+              CustomPaint(
+                painter: FaceCameraHudPainter(faceTracking: provider.faceTracking),
+                size: Size.infinite,
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
