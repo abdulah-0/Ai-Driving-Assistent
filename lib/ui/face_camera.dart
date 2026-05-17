@@ -84,24 +84,28 @@ class _FaceCameraState extends State<FaceCamera> {
       );
     }
 
-    return Consumer<DrowsinessProvider>(
-      builder: (context, provider, child) {
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Stack(
-            children: [
-              AspectRatio(
-                aspectRatio: 1 / _controller!.value.aspectRatio,
-                child: CameraPreview(_controller!),
-              ),
-              CustomPaint(
+    // Instantiate CameraPreview outside the high-frequency Consumer builder
+    // to prevent the native view from being constantly disposed/rebuilt.
+    final cameraPreviewWidget = AspectRatio(
+      aspectRatio: 1 / _controller!.value.aspectRatio,
+      child: CameraPreview(_controller!),
+    );
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Stack(
+        children: [
+          cameraPreviewWidget,
+          Consumer<DrowsinessProvider>(
+            builder: (context, provider, child) {
+              return CustomPaint(
                 painter: FaceCameraHudPainter(faceTracking: provider.faceTracking),
                 size: Size.infinite,
-              ),
-            ],
+              );
+            },
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 }

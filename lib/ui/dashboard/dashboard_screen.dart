@@ -212,6 +212,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
       });
     } catch (e) {
       debugPrint("Error recentering: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Location permission is denied or GPS is unavailable. Recenter is deactivated."),
+            backgroundColor: Colors.orangeAccent,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
     }
   }
 
@@ -303,12 +312,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_isPermissionGranted) {
-      return const Scaffold(
-        body: Center(child: Text("Please grant location permissions.")),
-      );
-    }
-
     return Consumer<DrowsinessProvider>(
       builder: (context, drowsinessProvider, child) {
         final severity = drowsinessProvider.severity;

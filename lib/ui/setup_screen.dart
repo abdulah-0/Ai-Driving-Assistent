@@ -39,7 +39,11 @@ class _SetupScreenState extends State<SetupScreen> {
         _startPoint = LatLng(position.latitude, position.longitude);
       });
     } catch (e) {
-      debugPrint("Error getting current location: $e");
+      debugPrint("Error getting current location, applying Islamabad fallback: $e");
+      setState(() {
+        _startPoint = const LatLng(33.6844, 73.0479); // Default Islamabad
+        _startController.text = "Islamabad (Fallback)";
+      });
     }
   }
 
